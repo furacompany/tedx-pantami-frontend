@@ -1,35 +1,62 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { Navbar } from "./components/Layout/Navbar";
+import { Footer } from "./components/Layout/Footer";
+import { NotificationBanner } from "./components/Layout/NotificationBanner";
+import { Home } from "./pages/Home";
+import { EventDetail } from "./pages/EventDetail";
+import { Booking } from "./pages/Booking";
+import { BookingConfirmation } from "./pages/BookingConfirmation";
+import { Gallery } from "./pages/Gallery";
+import { AdminLogin } from "./pages/Admin/Login";
+import { AdminDashboard } from "./pages/Admin/Dashboard";
+import { ProtectedRoute } from "./components/Shared/ProtectedRoute";
+import { mockNotification } from "./data/mockData";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <Router>
+      <div className="min-h-screen flex flex-col">
+        <NotificationBanner notification={mockNotification} />
+        <Navbar />
+        <main className="flex-1">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/events" element={<Home />} />
+            <Route path="/events/:id" element={<EventDetail />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/booking/:eventId/:ticketId" element={<Booking />} />
+            <Route
+              path="/booking/confirmation/:reference"
+              element={<BookingConfirmation />}
+            />
+
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 404 - Redirect to Home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+        <Footer />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;
