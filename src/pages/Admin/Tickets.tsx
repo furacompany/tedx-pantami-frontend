@@ -1,23 +1,52 @@
-import React from 'react';
-import { mockTickets, mockEvents } from '../../data/mockData';
+import React, { useEffect, useState } from 'react';
 import { formatPrice } from '../../utils/formatPrice';
+import { listAdminTickets, deleteTicket } from '../../api/tickets';
+import type { Ticket } from '../../types';
 
 export const AdminTickets: React.FC = () => {
-  const getEventTitle = (eventId: string) => mockEvents.find(e => e._id === eventId)?.title ?? '—';
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTickets = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await listAdminTickets({ page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' });
+      setTickets(res.data);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to load tickets';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this ticket?')) return;
+    try {
+      await deleteTicket(id);
+      setTickets((prev) => prev.filter((t) => t._id !== id));
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to delete ticket');
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-bold text-secondary-900">Tickets</h2>
         <button className="px-4 py-2 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
-          Create Ticket (UI-only)
+          Create Ticket
         </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-          <div className="text-sm text-secondary-600">UI-only list (mock data)</div>
-        </div>
+        {error && <div className="px-6 py-4 border-b border-secondary-200 text-sm text-red-600">{error}</div>}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-secondary-200">
             <thead>
@@ -31,10 +60,24 @@ export const AdminTickets: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-100">
-              {mockTickets.map((t) => (
+              {isLoading && (
+                <tr>
+                  <td className="py-6 px-6 text-secondary-600" colSpan={6}>Loading tickets...</td>
+                </tr>
+              )}
+              {!isLoading && tickets.length === 0 && (
+                <tr>
+                  <td className="py-6 px-6 text-secondary-600" colSpan={6}>No tickets found</td>
+                </tr>
+              )}
+              {tickets.map((t) => (
                 <tr key={t._id}>
                   <td className="py-3 px-6 font-medium text-secondary-900">{t.name}</td>
-                  <td className="py-3 px-6">{getEventTitle(t.eventId)}</td>
+                  <td className="py-3 px-6">
+                    {typeof t.eventId === 'object' && t.eventId && 'title' in t.eventId
+                      ? (t.eventId as any).title
+                      : (t as any)?.eventId?.title ?? '—'}
+                  </td>
                   <td className="py-3 px-6">{formatPrice(t.price)}</td>
                   <td className="py-3 px-6">{t.availableQuantity}/{t.quantity}</td>
                   <td className="py-3 px-6">
@@ -44,10 +87,10 @@ export const AdminTickets: React.FC = () => {
                   </td>
                   <td className="py-3 px-6 space-x-2">
                     <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
-                      Edit (UI-only)
+                      Edit
                     </button>
-                    <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
-                      Delete (UI-only)
+                    <button onClick={() => handleDelete(t._id)} className="px-3 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition">
+                      Delete
                     </button>
                   </td>
                 </tr>

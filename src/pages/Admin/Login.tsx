@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/Shared/Input';
 import { Button } from '../../components/Shared/Button';
+import { loginAdmin } from '../../api/admin';
 
 export const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export const AdminLogin: React.FC = () => {
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -21,14 +23,22 @@ export const AdminLogin: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // UI only - no actual API call
+    setError(null);
     setIsLoading(true);
-    setTimeout(() => {
-      // Simulate login
-      localStorage.setItem('adminToken', 'mock-token-123');
+    try {
+      const res = await loginAdmin({ email: formData.email, password: formData.password });
+      if (res.success && res.data?.token) {
+        localStorage.setItem('adminToken', res.data.token);
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        setError(res.message || 'Login failed');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Invalid credentials';
+      setError(msg);
+    } finally {
       setIsLoading(false);
-      navigate('/admin/dashboard');
-    }, 1000);
+    }
   };
 
   return (
@@ -70,6 +80,12 @@ export const AdminLogin: React.FC = () => {
               placeholder="Enter your password"
             />
           </div>
+
+          {error && (
+            <div className="text-sm text-red-600">
+              {error}
+            </div>
+          )}
 
           <div>
             <Button

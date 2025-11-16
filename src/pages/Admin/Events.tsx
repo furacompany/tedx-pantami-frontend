@@ -1,9 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mockEvents } from '../../data/mockData';
 import { formatDateTime } from '../../utils/formatDate';
+import { listAdminEvents, deleteEvent } from '../../api/events';
+import type { Event } from '../../types';
 
 export const AdminEvents: React.FC = () => {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEvents = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await listAdminEvents({ page: 1, limit: 20, sortBy: 'date', sortOrder: 'desc' });
+      setEvents(res.data);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to load events';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this event?')) return;
+    try {
+      await deleteEvent(id);
+      setEvents((prev) => prev.filter((e) => e._id !== id));
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to delete event');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -14,9 +47,9 @@ export const AdminEvents: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-          <div className="text-sm text-secondary-600">UI-only list (mock data)</div>
-        </div>
+        {error && (
+          <div className="px-6 py-4 border-b border-secondary-200 text-sm text-red-600">{error}</div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-secondary-200">
             <thead>
@@ -29,7 +62,17 @@ export const AdminEvents: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-100">
-              {mockEvents.map((e) => (
+              {isLoading && (
+                <tr>
+                  <td className="py-6 px-6 text-secondary-600" colSpan={5}>Loading events...</td>
+                </tr>
+              )}
+              {!isLoading && events.length === 0 && (
+                <tr>
+                  <td className="py-6 px-6 text-secondary-600" colSpan={5}>No events found</td>
+                </tr>
+              )}
+              {events.map((e) => (
                 <tr key={e._id}>
                   <td className="py-3 px-6 font-medium text-secondary-900">{e.title}</td>
                   <td className="py-3 px-6">{e.date ? formatDateTime(e.date) : 'TBD'}</td>
@@ -41,10 +84,10 @@ export const AdminEvents: React.FC = () => {
                   </td>
                   <td className="py-3 px-6 space-x-2">
                     <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
-                      Edit (UI-only)
+                      Edit
                     </button>
-                    <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
-                      Delete (UI-only)
+                    <button onClick={() => handleDelete(e._id)} className="px-3 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition">
+                      Delete
                     </button>
                   </td>
                 </tr>

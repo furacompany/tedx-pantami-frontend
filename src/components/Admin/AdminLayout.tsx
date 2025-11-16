@@ -38,7 +38,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <NavLink to="/admin/dashboard" className={linkClasses}>
               <span className="ml-1">Dashboard</span>
             </NavLink>
-            <NavLink to="/admin/events" className={linkClasses}>
+            <NavLink to="/admin/events" end className={linkClasses}>
               <span className="ml-1">Events</span>
             </NavLink>
             <NavLink to="/admin/events/new" className={linkClasses}>

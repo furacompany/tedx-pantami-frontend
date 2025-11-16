@@ -1,29 +1,63 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../../components/Shared/Button';
-import { mockEvents, mockTickets, mockBooking } from '../../data/mockData';
 import { formatDateTime } from '../../utils/formatDate';
 import { formatPrice } from '../../utils/formatPrice';
+import { listAdminEvents } from '../../api/events';
+import { listAdminTickets } from '../../api/tickets';
+import { listAdminBookings } from '../../api/bookings';
+import type { Event, Ticket, Booking } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     navigate('/admin/login');
   };
 
-  // Derived stats (UI-only using mock data)
-  const totalEvents = mockEvents.length;
-  const activeEvents = mockEvents.filter((e) => e.status === 'active').length;
-  const totalTickets = mockTickets.length;
-  const activeTickets = mockTickets.filter((t) => t.status === 'active').length;
-  const totalAvailable = mockTickets.reduce((sum, t) => sum + (t.availableQuantity ?? 0), 0);
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [ev, tk, bk] = await Promise.all([
+          listAdminEvents({ page: 1, limit: 100, sortBy: 'date', sortOrder: 'asc' }),
+          listAdminTickets({ page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }),
+          listAdminBookings({ page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }),
+        ]);
+        setEvents(ev.data);
+        setTickets(tk.data);
+        setBookings(bk.data);
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Failed to load dashboard data';
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  const totalEvents = events.length;
+  const activeEvents = useMemo(() => events.filter((e) => e.status === 'active').length, [events]);
+  const totalTickets = tickets.length;
+  const activeTickets = useMemo(() => tickets.filter((t) => t.status === 'active').length, [tickets]);
+  const totalAvailable = useMemo(() => tickets.reduce((sum, t) => sum + (t.availableQuantity ?? 0), 0), [tickets]);
 
   // Next upcoming event
-  const upcomingEvent = [...mockEvents]
-    .filter((e) => e.status === 'active' && e.date)
-    .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime())[0];
+  const upcomingEvent = useMemo(() => {
+    return [...events]
+      .filter((e) => e.status === 'active' && e.date)
+      .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime())[0];
+  }, [events]);
+
+  const recentBooking = bookings[0];
 
   return (
     <div className="min-h-screen bg-secondary-50">
@@ -45,13 +79,14 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Dashboard Content */}
       <main className="container mx-auto px-4 py-8 md:py-12">
+        {error && <div className="mb-6 text-sm text-red-600">{error}</div>}
         {/* Overview Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-soft p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-secondary-500">Total Events</p>
-                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{totalEvents}</p>
+                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{loading ? '—' : totalEvents}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -59,14 +94,14 @@ export const AdminDashboard: React.FC = () => {
                 </svg>
               </div>
             </div>
-            <p className="mt-3 text-sm text-secondary-600">{activeEvents} active</p>
+            <p className="mt-3 text-sm text-secondary-600">{loading ? '—' : `${activeEvents} active`}</p>
           </div>
 
           <div className="bg-white rounded-xl shadow-soft p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-secondary-500">Tickets</p>
-                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{totalTickets}</p>
+                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{loading ? '—' : totalTickets}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,14 +109,14 @@ export const AdminDashboard: React.FC = () => {
                 </svg>
               </div>
             </div>
-            <p className="mt-3 text-sm text-secondary-600">{activeTickets} active</p>
+            <p className="mt-3 text-sm text-secondary-600">{loading ? '—' : `${activeTickets} active`}</p>
           </div>
 
           <div className="bg-white rounded-xl shadow-soft p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-secondary-500">Available Tickets</p>
-                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{totalAvailable}</p>
+                <p className="mt-2 font-display text-3xl font-bold text-secondary-900">{loading ? '—' : totalAvailable}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -97,7 +132,7 @@ export const AdminDashboard: React.FC = () => {
               <div>
                 <p className="text-sm text-secondary-500">Next Event</p>
                 <p className="mt-2 font-display text-xl font-semibold text-secondary-900">
-                  {upcomingEvent ? upcomingEvent.title : '—'}
+                  {loading ? '—' : (upcomingEvent ? upcomingEvent.title : '—')}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
@@ -107,7 +142,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <p className="mt-3 text-sm text-secondary-600">
-              {upcomingEvent && upcomingEvent.date ? formatDateTime(upcomingEvent.date) : 'TBD'}
+              {loading ? '—' : (upcomingEvent && upcomingEvent.date ? formatDateTime(upcomingEvent.date) : 'TBD')}
             </p>
           </div>
         </section>
@@ -119,12 +154,9 @@ export const AdminDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-soft overflow-hidden">
               <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
                 <h3 className="font-display text-lg font-semibold text-secondary-900">Recent Booking</h3>
-                <span className="text-xs px-2 py-1 rounded-full bg-primary-50 text-primary-600">
-                  UI only
-                </span>
               </div>
               <div className="p-6">
-                {mockBooking ? (
+                {recentBooking ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-secondary-200">
                       <thead>
@@ -140,18 +172,18 @@ export const AdminDashboard: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-secondary-100">
                         <tr>
-                          <td className="py-3 pr-4 font-mono text-sm text-secondary-900">{mockBooking.reference}</td>
+                          <td className="py-3 pr-4 font-mono text-sm text-secondary-900">{recentBooking.reference}</td>
                           <td className="py-3 pr-4">
-                            <div className="text-secondary-900">{mockBooking.fullName}</div>
-                            <div className="text-xs text-secondary-600">{mockBooking.email}</div>
+                            <div className="text-secondary-900">{recentBooking.fullName}</div>
+                            <div className="text-xs text-secondary-600">{recentBooking.email}</div>
                           </td>
                           <td className="py-3 pr-4">
-                            {typeof mockBooking.eventId !== 'string' ? (
+                            {recentBooking.eventId && typeof recentBooking.eventId !== 'string' ? (
                               <div>
-                                <div className="text-secondary-900">{mockBooking.eventId.title}</div>
-                                {mockBooking.eventId.date && (
+                                <div className="text-secondary-900">{recentBooking.eventId.title}</div>
+                                {recentBooking.eventId.date && (
                                   <div className="text-xs text-secondary-600">
-                                    {formatDateTime(mockBooking.eventId.date)}
+                                    {formatDateTime(recentBooking.eventId.date)}
                                   </div>
                                 )}
                               </div>
@@ -160,17 +192,17 @@ export const AdminDashboard: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 pr-4">
-                            {typeof mockBooking.ticketId !== 'string' ? (
-                              <div className="text-secondary-900">{mockBooking.ticketId.name}</div>
+                            {recentBooking.ticketId && typeof recentBooking.ticketId !== 'string' ? (
+                              <div className="text-secondary-900">{recentBooking.ticketId.name}</div>
                             ) : (
                               <span className="text-secondary-700">—</span>
                             )}
                           </td>
-                          <td className="py-3 pr-4">{mockBooking.quantity}</td>
-                          <td className="py-3 pr-4 font-medium text-secondary-900">{formatPrice(mockBooking.totalAmount)}</td>
+                          <td className="py-3 pr-4">{recentBooking.quantity}</td>
+                          <td className="py-3 pr-4 font-medium text-secondary-900">{formatPrice(recentBooking.totalAmount)}</td>
                           <td className="py-3">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                              {mockBooking.status}
+                              {recentBooking.status}
                             </span>
                           </td>
                         </tr>
@@ -191,33 +223,25 @@ export const AdminDashboard: React.FC = () => {
                 <h3 className="font-display text-lg font-semibold text-secondary-900">Quick Actions</h3>
               </div>
               <div className="p-6 space-y-3">
-                <Button variant="primary" className="w-full" disabled>
-                  Create Event (UI only)
-                </Button>
-                <Button variant="outline" className="w-full" disabled>
-                  Create Ticket (UI only)
-                </Button>
-                <Button variant="outline" className="w-full" disabled>
-                  Manage Notifications (UI only)
-                </Button>
+                <Link to="/admin/events/new" className="block">
+                  <Button variant="primary" className="w-full">
+                    Create Event
+                  </Button>
+                </Link>
+                <Link to="/admin/tickets" className="block">
+                  <Button variant="outline" className="w-full">
+                    Manage Tickets
+                  </Button>
+                </Link>
+                <Link to="/admin/notifications" className="block">
+                  <Button variant="outline" className="w-full">
+                    Manage Notifications
+                  </Button>
+                </Link>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-soft overflow-hidden mt-6">
-              <div className="px-6 py-4 border-b border-secondary-200">
-                <h3 className="font-display text-lg font-semibold text-secondary-900">Active Events</h3>
-              </div>
-              <ul className="divide-y divide-secondary-100">
-                {mockEvents.filter((e) => e.status === 'active').map((e) => (
-                  <li key={e._id} className="px-6 py-4">
-                    <div className="font-medium text-secondary-900">{e.title}</div>
-                    <div className="text-sm text-secondary-600">
-                      {e.date ? formatDateTime(e.date) : 'TBD'}{e.venue ? ` • ${e.venue}` : ''}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Removed Active Events card as requested */}
           </div>
         </section>
       </main>
