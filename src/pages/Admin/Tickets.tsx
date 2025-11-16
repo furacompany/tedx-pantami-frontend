@@ -15,6 +15,14 @@ export const AdminTickets: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    priceNaira: '',
+    quantity: '',
+    status: 'active' as 'active' | 'inactive',
+  });
   const [form, setForm] = useState({
     eventId: '',
     name: '',
@@ -71,6 +79,7 @@ export const AdminTickets: React.FC = () => {
     if (Number.isNaN(n)) return 0;
     return Math.round(n * 100);
   };
+  const koboToNairaStr = (val: number) => (val / 100).toString();
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +105,36 @@ export const AdminTickets: React.FC = () => {
       toast.error(err?.response?.data?.message || 'Failed to create ticket');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openEdit = (ticket: Ticket) => {
+    setEditingTicket(ticket);
+    setEditForm({
+      name: ticket.name,
+      description: ticket.description ?? '',
+      priceNaira: koboToNairaStr(ticket.price),
+      quantity: String(ticket.quantity),
+      status: ticket.status,
+    });
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTicket) return;
+    try {
+      await (await import('../../api/tickets')).updateTicket(editingTicket._id, {
+        name: editForm.name,
+        description: editForm.description || undefined,
+        price: nairaToKobo(editForm.priceNaira),
+        quantity: Number(editForm.quantity),
+        status: editForm.status,
+      });
+      toast.success('Ticket updated');
+      setEditingTicket(null);
+      fetchTickets();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update ticket');
     }
   };
 
@@ -255,7 +294,7 @@ export const AdminTickets: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-6 space-x-2">
-                    <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
+                    <button onClick={() => openEdit(t)} className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 hover:bg-secondary-200 transition">
                       Edit
                     </button>
                     <button onClick={() => handleDelete(t._id)} className="px-3 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition">
@@ -268,6 +307,82 @@ export const AdminTickets: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {editingTicket && (
+        <div className="bg-white rounded-xl shadow-soft overflow-hidden">
+          <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold text-secondary-900">Edit Ticket</h3>
+            <button onClick={() => setEditingTicket(null)} className="text-secondary-700 hover:text-primary-600 text-sm font-medium">Close</button>
+          </div>
+          <form onSubmit={handleEdit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Event</label>
+              <input
+                value={typeof editingTicket.eventId === 'object' ? (editingTicket.eventId as any).title ?? '' : ''}
+                readOnly
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2 bg-secondary-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Name</label>
+              <input
+                value={editForm.name}
+                onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                required
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Status</label>
+              <select
+                value={editForm.status}
+                onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value as any }))}
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Description</label>
+              <textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Price (₦)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.priceNaira}
+                onChange={(e) => setEditForm((p) => ({ ...p, priceNaira: e.target.value }))}
+                required
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={editForm.quantity}
+                onChange={(e) => setEditForm((p) => ({ ...p, quantity: e.target.value }))}
+                required
+                className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+              />
+            </div>
+            <div className="md:col-span-2 pt-2">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition disabled:opacity-60">
+                Update Ticket
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

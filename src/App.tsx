@@ -86,6 +86,16 @@ function App() {
             }
           />
           <Route
+            path="/admin/events/:id/edit"
+            element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <AdminCreateEvent />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/tickets"
             element={
               <ProtectedRoute>

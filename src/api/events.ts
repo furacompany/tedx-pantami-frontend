@@ -28,6 +28,11 @@ export async function listAdminEvents(params: {
   return data;
 }
 
+export async function getEventById(id: string): Promise<{ success: boolean; data: Event }> {
+  const { data } = await apiClient.get<{ success: boolean; data: Event }>(`/api/events/${id}`);
+  return data;
+}
+
 export async function createEvent(payload: Omit<Event, '_id' | 'createdAt' | 'updatedAt'>): Promise<{
   success: boolean;
   message: string;

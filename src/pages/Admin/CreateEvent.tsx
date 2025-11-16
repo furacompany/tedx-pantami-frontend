@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { uploadImage, deleteImage } from '../../api/images';
 import { createEvent } from '../../api/events';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getEventById, updateEvent } from '../../api/events';
 
 export const AdminCreateEvent: React.FC = () => {
   const navigate = useNavigate();
+  const params = useParams();
+  const eventId = params.id;
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -17,6 +20,35 @@ export const AdminCreateEvent: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    const load = async () => {
+      if (!eventId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getEventById(eventId);
+        const ev = res.data;
+        setForm({
+          title: ev.title,
+          description: ev.description ?? '',
+          // Convert ISO to datetime-local format
+          date: ev.date ? new Date(ev.date).toISOString().slice(0, 16) : '',
+          venue: ev.venue ?? '',
+          imageUrl: ev.imageUrl ?? '',
+          status: ev.status,
+        });
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Failed to load event';
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [eventId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -56,16 +88,29 @@ export const AdminCreateEvent: React.FC = () => {
     setError(null);
     setSubmitting(true);
     try {
-      await createEvent({
-        title: form.title,
-        description: form.description || undefined,
-        date: form.date,
-        venue: form.venue || undefined,
-        imageUrl: form.imageUrl || undefined,
-        status: form.status as 'active' | 'inactive',
-      });
-      toast.success('Event created');
-      navigate('/admin/events', { replace: true });
+      if (eventId) {
+        await updateEvent(eventId, {
+          title: form.title,
+          description: form.description || undefined,
+          date: form.date,
+          venue: form.venue || undefined,
+          imageUrl: form.imageUrl || undefined,
+          status: form.status as 'active' | 'inactive',
+        });
+        toast.success('Event updated');
+        navigate('/admin/events', { replace: true });
+      } else {
+        await createEvent({
+          title: form.title,
+          description: form.description || undefined,
+          date: form.date,
+          venue: form.venue || undefined,
+          imageUrl: form.imageUrl || undefined,
+          status: form.status as 'active' | 'inactive',
+        });
+        toast.success('Event created');
+        navigate('/admin/events', { replace: true });
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create event';
       setError(msg);
@@ -77,24 +122,24 @@ export const AdminCreateEvent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="font-display text-2xl font-bold text-secondary-900">Create Event</h2>
+      <h2 className="font-display text-2xl font-bold text-secondary-900">{eventId ? 'Edit Event' : 'Create Event'}</h2>
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-soft p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">Title</label>
-          <input name="title" value={form.title} onChange={handleChange} required className="w-full border border-secondary-300 rounded-lg px-3 py-2" />
+          <input name="title" value={form.title} onChange={handleChange} required className="w-full border border-secondary-300 rounded-lg px-3 py-2" disabled={loading} />
         </div>
         <div>
           <label className="block text-sm font-medium text-secondary-700 mb-1">Description</label>
-          <textarea name="description" value={form.description} onChange={handleChange} rows={4} className="w-full border border-secondary-300 rounded-lg px-3 py-2" />
+          <textarea name="description" value={form.description} onChange={handleChange} rows={4} className="w-full border border-secondary-300 rounded-lg px-3 py-2" disabled={loading} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">Date</label>
-            <input type="datetime-local" name="date" value={form.date} onChange={handleChange} required className="w-full border border-secondary-300 rounded-lg px-3 py-2" />
+            <input type="datetime-local" name="date" value={form.date} onChange={handleChange} required className="w-full border border-secondary-300 rounded-lg px-3 py-2" disabled={loading} />
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">Venue</label>
-            <input name="venue" value={form.venue} onChange={handleChange} className="w-full border border-secondary-300 rounded-lg px-3 py-2" />
+            <input name="venue" value={form.venue} onChange={handleChange} className="w-full border border-secondary-300 rounded-lg px-3 py-2" disabled={loading} />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -110,13 +155,13 @@ export const AdminCreateEvent: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} className="w-full" />
+              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading || loading} className="w-full" />
             )}
             {uploading && <div className="text-sm text-secondary-600">Uploading...</div>}
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-1">Status</label>
-            <select name="status" value={form.status} onChange={handleChange} className="w-full border border-secondary-300 rounded-lg px-3 py-2">
+            <select name="status" value={form.status} onChange={handleChange} className="w-full border border-secondary-300 rounded-lg px-3 py-2" disabled={loading}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
@@ -124,8 +169,8 @@ export const AdminCreateEvent: React.FC = () => {
         </div>
         {error && <div className="text-sm text-red-600">{error}</div>}
         <div className="pt-2">
-          <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition disabled:opacity-60">
-            {submitting ? 'Saving...' : 'Save'}
+          <button type="submit" disabled={submitting || loading} className="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition disabled:opacity-60">
+            {submitting ? 'Saving...' : (eventId ? 'Update' : 'Save')}
           </button>
         </div>
       </form>

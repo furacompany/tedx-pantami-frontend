@@ -92,9 +92,9 @@ export const AdminEvents: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-6 space-x-2">
-                    <button className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 cursor-not-allowed" disabled>
+                    <Link to={`/admin/events/${e._id}/edit`} className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 hover:bg-secondary-200 transition">
                       Edit
-                    </button>
+                    </Link>
                     <button onClick={() => handleDelete(e._id)} className="px-3 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition">
                       Delete
                     </button>
