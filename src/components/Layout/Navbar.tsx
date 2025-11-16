@@ -65,12 +65,6 @@ export const Navbar: React.FC = () => {
                 </Link>
               );
             })}
-            <Link
-              to="/admin/login"
-              className="text-secondary-600 hover:text-primary-500 transition-colors text-sm"
-            >
-              Admin
-            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -134,13 +128,6 @@ export const Navbar: React.FC = () => {
                 </Link>
               );
             })}
-            <Link
-              to="/admin/login"
-              onClick={() => setIsOpen(false)}
-              className="block py-2 text-secondary-600 hover:text-primary-500 transition-colors text-sm"
-            >
-              Admin
-            </Link>
           </div>
         )}
       </div>
