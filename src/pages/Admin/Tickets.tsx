@@ -11,6 +11,13 @@ export const AdminTickets: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<string>('');
+  const [eventFilter, setEventFilter] = useState<string>('');
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -32,12 +39,23 @@ export const AdminTickets: React.FC = () => {
     status: 'active' as 'active' | 'inactive',
   });
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (opts?: { page?: number }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await listAdminTickets({ page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' });
+      const res = await listAdminTickets({
+        page: opts?.page ?? page,
+        limit: 10,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        search: search.trim() || undefined,
+        status: (status as any) || '',
+        eventId: eventFilter || undefined,
+        minPrice: minPrice ? Math.round(Number(minPrice) * 100) : undefined,
+        maxPrice: maxPrice ? Math.round(Number(maxPrice) * 100) : undefined,
+      });
       setTickets(res.data);
+      setTotalPages(res.pagination?.totalPages ?? 1);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to load tickets';
       setError(msg);
@@ -47,7 +65,24 @@ export const AdminTickets: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchTickets({ page: 1 });
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status, eventFilter, minPrice, maxPrice]);
+
+  useEffect(() => {
     fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  // Preload events for filters even if create form is not opened
+  useEffect(() => {
+    (async () => {
+      try {
+        const ev = await listAdminEvents({ page: 1, limit: 100, sortBy: 'date', sortOrder: 'desc', status: '' });
+        setEvents(ev.data);
+      } catch {}
+    })();
   }, []);
 
   const openCreate = async () => {
@@ -75,11 +110,19 @@ export const AdminTickets: React.FC = () => {
   };
 
   const nairaToKobo = (val: string) => {
-    const n = Number(val);
+    const n = Number((val || '').toString().replace(/,/g, ''));
     if (Number.isNaN(n)) return 0;
     return Math.round(n * 100);
   };
-  const koboToNairaStr = (val: number) => (val / 100).toString();
+  const koboToNairaStr = (val: number) => new Intl.NumberFormat('en-NG').format(val / 100);
+  const formatNairaInput = (value: string) => {
+    const cleaned = value.replace(/[^\d.]/g, '');
+    const parts = cleaned.split('.');
+    const intPart = parts[0] || '';
+    const decPart = parts[1] ?? '';
+    const formattedInt = intPart ? new Intl.NumberFormat('en-NG').format(Number(intPart)) : '';
+    return decPart.length > 0 ? `${formattedInt}.${decPart}` : formattedInt;
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,6 +207,56 @@ export const AdminTickets: React.FC = () => {
         </button>
       </div>
 
+      <div className="bg-white rounded-xl shadow-soft p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name or description"
+          className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+        />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border border-secondary-300 rounded-lg px-3 py-2">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select
+          value={eventFilter}
+          onChange={(e) => setEventFilter(e.target.value)}
+          className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+        >
+          <option value="">All events</option>
+          {events.map((ev) => (
+            <option key={ev._id} value={ev._id}>{ev.title}</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={minPrice}
+          onChange={(e) => setMinPrice(e.target.value)}
+          placeholder="Min ₦"
+          className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+        />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(e.target.value)}
+          placeholder="Max ₦"
+          className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setSearch(''); setStatus(''); setEventFilter(''); setMinPrice(''); setMaxPrice(''); }}
+            className="px-3 py-2 rounded-lg border border-secondary-300 text-secondary-700"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
       {showCreate && (
         <div className="bg-white rounded-xl shadow-soft overflow-hidden">
           <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
@@ -222,14 +315,13 @@ export const AdminTickets: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-1">Price (₦)</label>
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={form.priceNaira}
-                onChange={(e) => setForm((p) => ({ ...p, priceNaira: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, priceNaira: formatNairaInput(e.target.value) }))}
                 required
                 className="w-full border border-secondary-300 rounded-lg px-3 py-2"
-                placeholder="e.g. 50000"
+                placeholder="e.g. 50,000"
               />
             </div>
             <div>
@@ -308,6 +400,26 @@ export const AdminTickets: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-secondary-600">Page {page} of {totalPages}</div>
+        <div className="space-x-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-2 rounded-lg border border-secondary-300 text-secondary-700 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-2 rounded-lg border border-secondary-300 text-secondary-700 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       {editingTicket && (
         <div className="bg-white rounded-xl shadow-soft overflow-hidden">
           <div className="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
@@ -355,11 +467,10 @@ export const AdminTickets: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-1">Price (₦)</label>
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={editForm.priceNaira}
-                onChange={(e) => setEditForm((p) => ({ ...p, priceNaira: e.target.value }))}
+                onChange={(e) => setEditForm((p) => ({ ...p, priceNaira: formatNairaInput(e.target.value) }))}
                 required
                 className="w-full border border-secondary-300 rounded-lg px-3 py-2"
               />

@@ -10,13 +10,27 @@ export const AdminEvents: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<string>('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (opts?: { page?: number }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await listAdminEvents({ page: 1, limit: 20, sortBy: 'date', sortOrder: 'desc' });
+      const res = await listAdminEvents({
+        page: opts?.page ?? page,
+        limit: 10,
+        sortBy,
+        sortOrder,
+        search: search.trim() || undefined,
+        status: (status as any) || '',
+      });
       setEvents(res.data);
+      setTotalPages(res.pagination?.totalPages ?? 1);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to load events';
       setError(msg);
@@ -26,8 +40,15 @@ export const AdminEvents: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchEvents({ page: 1 });
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status, sortBy, sortOrder]);
+
+  useEffect(() => {
     fetchEvents();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const handleDelete = async (id: string) => {
     const ok = await confirmDialog({
@@ -53,6 +74,29 @@ export const AdminEvents: React.FC = () => {
         <Link to="/admin/events/new" className="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition">
           Create Event
         </Link>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-soft p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search title or description"
+          className="w-full border border-secondary-300 rounded-lg px-3 py-2"
+        />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border border-secondary-300 rounded-lg px-3 py-2">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full border border-secondary-300 rounded-lg px-3 py-2">
+          <option value="date">Sort by date</option>
+          <option value="createdAt">Sort by created</option>
+          <option value="title">Sort by title</option>
+        </select>
+        <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="w-full border border-secondary-300 rounded-lg px-3 py-2">
+          <option value="desc">Desc</option>
+          <option value="asc">Asc</option>
+        </select>
       </div>
 
       <div className="bg-white rounded-xl shadow-soft overflow-hidden">
@@ -103,6 +147,26 @@ export const AdminEvents: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-secondary-600">Page {page} of {totalPages}</div>
+        <div className="space-x-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-2 rounded-lg border border-secondary-300 text-secondary-700 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-2 rounded-lg border border-secondary-300 text-secondary-700 disabled:opacity-50"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
