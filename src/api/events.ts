@@ -14,6 +14,14 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export async function listPublicEvents(): Promise<{
+  success: boolean;
+  data: Event[];
+}> {
+  const { data } = await apiClient.get<{ success: boolean; data: Event[] }>('/api/events');
+  return data;
+}
+
 export async function listAdminEvents(params: {
   page?: number;
   limit?: number;

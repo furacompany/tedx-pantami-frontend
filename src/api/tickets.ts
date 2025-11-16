@@ -14,6 +14,22 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export async function listTicketsByEventId(eventId: string): Promise<{
+  success: boolean;
+  data: Ticket[];
+}> {
+  const { data } = await apiClient.get<{ success: boolean; data: Ticket[] }>(`/api/tickets/event/${eventId}`);
+  return data;
+}
+
+export async function getTicketById(id: string): Promise<{
+  success: boolean;
+  data: Ticket;
+}> {
+  const { data } = await apiClient.get<{ success: boolean; data: Ticket }>(`/api/tickets/${id}`);
+  return data;
+}
+
 export async function listAdminTickets(params: {
   page?: number;
   limit?: number;

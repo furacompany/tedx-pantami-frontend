@@ -1,26 +1,90 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getEventById, getTicketsByEventId } from '../data/mockData';
+import { getEventById } from '../api/events';
+import { listTicketsByEventId } from '../api/tickets';
 import { TicketList } from '../components/Ticket/TicketList';
 import { formatDateTime } from '../utils/formatDate';
 import { Button } from '../components/Shared/Button';
 import type { Ticket } from '../types';
+import type { Event } from '../types';
+import { LoadingSpinner } from '../components/Shared/LoadingSpinner';
+import { toast } from 'sonner';
 
 export const EventDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const event = id ? getEventById(id) : null;
-  const tickets = id ? getTicketsByEventId(id) : [];
+  const [event, setEvent] = useState<Event | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoadingEvent, setIsLoadingEvent] = useState<boolean>(false);
+  const [isLoadingTickets, setIsLoadingTickets] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let isMounted = true;
+
+    const fetchEvent = async () => {
+      setIsLoadingEvent(true);
+      setError(null);
+      try {
+        const res = await getEventById(id);
+        if (res.success && res.data) {
+          if (isMounted) setEvent(res.data);
+        } else {
+          const msg = 'Failed to load event';
+          if (isMounted) setError(msg);
+          toast.error(msg);
+        }
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Unable to load event';
+        if (isMounted) setError(msg);
+        toast.error(msg);
+      } finally {
+        if (isMounted) setIsLoadingEvent(false);
+      }
+    };
+
+    const fetchTickets = async () => {
+      setIsLoadingTickets(true);
+      try {
+        const res = await listTicketsByEventId(id);
+        if (res.success && Array.isArray(res.data)) {
+          if (isMounted) setTickets(res.data);
+        }
+      } catch (err: any) {
+        // tickets optional; surface as toast only
+        toast.error(err?.response?.data?.message || 'Unable to load tickets');
+      } finally {
+        if (isMounted) setIsLoadingTickets(false);
+      }
+    };
+
+    fetchEvent();
+    fetchTickets();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   const handleBookTicket = (ticket: Ticket) => {
     navigate(`/booking/${id}/${ticket._id}`);
   };
 
-  if (!event) {
+  if (isLoadingEvent) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <LoadingSpinner size="lg" className="mx-auto" />
+      </div>
+    );
+  }
+
+  if (error || !event) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold text-secondary-900 mb-4">
-          Event Not Found
+          {error || 'Event Not Found'}
         </h1>
         <p className="text-secondary-600 mb-6">The event you're looking for doesn't exist.</p>
         <Link to="/">
@@ -123,7 +187,11 @@ export const EventDetail: React.FC = () => {
             </div>
 
             {/* Tickets Section */}
-            {tickets.length > 0 ? (
+            {isLoadingTickets ? (
+              <div className="py-8">
+                <LoadingSpinner className="mx-auto" />
+              </div>
+            ) : tickets.length > 0 ? (
               <div>
                 <h2 className="font-display text-2xl md:text-3xl font-bold text-secondary-900 mb-6">
                   Available Tickets

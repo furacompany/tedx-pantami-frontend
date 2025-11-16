@@ -1,21 +1,73 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { mockEvents, mockGalleryItems } from '../data/mockData';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { mockGalleryItems } from '../data/mockData';
 import { EventGrid } from '../components/Event/EventGrid';
 import { GalleryGrid } from '../components/Gallery/GalleryGrid';
 import { Button } from '../components/Shared/Button';
 import { CountdownTimer } from '../components/Shared/CountdownTimer';
 import { formatDate } from '../utils/formatDate';
 import type { Event } from '../types';
+import { listPublicEvents } from '../api/events';
+import { toast } from 'sonner';
 
 export const Home: React.FC = () => {
-  // Get active events and sort by date (most recent first)
-  const activeEvents = mockEvents
-    .filter(event => event.status === 'active')
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const location = useLocation();
+  const showAll = location.pathname === '/events';
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Get the most recent active event for countdown
-  const upcomingEvent: Event | null = activeEvents.length > 0 ? activeEvents[0] : null;
+  useEffect(() => {
+    let isMounted = true;
+    const fetchEvents = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await listPublicEvents();
+        if (res.success && Array.isArray(res.data)) {
+          if (isMounted) setEvents(res.data);
+        } else {
+          const msg = 'Failed to load events';
+          if (isMounted) setError(msg);
+          toast.error(msg);
+        }
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Unable to load events';
+        if (isMounted) setError(msg);
+        toast.error(msg);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    fetchEvents();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Active events sorted ascending by date (soonest first)
+  const activeEvents = useMemo(() => {
+    return events
+      .filter(event => event.status === 'active')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events]);
+
+  // Choose upcoming event: nearest future active date; fallback to latest past active if none
+  const upcomingEvent: Event | null = useMemo(() => {
+    const now = Date.now();
+    const future = activeEvents.filter(e => new Date(e.date).getTime() >= now);
+    if (future.length > 0) {
+      return future[0];
+    }
+    // fallback: pick the most recent past active
+    const past = activeEvents.filter(e => new Date(e.date).getTime() < now);
+    if (past.length > 0) {
+      return past[past.length - 1];
+    }
+    return null;
+  }, [activeEvents]);
+
+  const displayedEvents = showAll ? activeEvents : activeEvents.slice(0, 3);
 
   return (
     <div className="bg-white">
@@ -141,7 +193,19 @@ export const Home: React.FC = () => {
               Discover our diverse range of events, from inspiring TEDx talks to hands-on workshops and innovation summits.
             </p>
           </div>
-          <EventGrid events={activeEvents} />
+          <EventGrid events={displayedEvents} isLoading={isLoading} />
+          {error && (
+            <div className="text-center mt-6 text-red-600">{error}</div>
+          )}
+          {!showAll && activeEvents.length > 3 && (
+            <div className="text-center mt-10">
+              <Link to="/events">
+                <Button variant="secondary" size="lg">
+                  View more events
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

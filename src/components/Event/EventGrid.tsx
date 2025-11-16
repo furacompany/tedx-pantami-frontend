@@ -26,8 +26,16 @@ export const EventGrid: React.FC<EventGridProps> = ({ events, isLoading = false 
     );
   }
 
+  const count = events.length;
+  const gridClass =
+    count >= 3
+      ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'
+      : count === 2
+      ? 'grid grid-cols-1 sm:grid-cols-2 gap-8 justify-items-center'
+      : 'grid grid-cols-1 gap-8 justify-items-center';
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div className={gridClass}>
       {events.map((event) => (
         <EventCard key={event._id} event={event} />
       ))}
