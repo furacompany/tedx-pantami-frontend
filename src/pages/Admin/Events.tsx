@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { formatDateTime } from '../../utils/formatDate';
 import { listAdminEvents, deleteEvent } from '../../api/events';
 import type { Event } from '../../types';
+import { toast } from 'sonner';
+import { confirmDialog } from '../../utils/confirm';
 
 export const AdminEvents: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -28,12 +30,19 @@ export const AdminEvents: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+    const ok = await confirmDialog({
+      title: 'Delete event?',
+      text: 'This will permanently delete the event.',
+      confirmButtonText: 'Delete',
+      icon: 'warning',
+    });
+    if (!ok) return;
     try {
       await deleteEvent(id);
       setEvents((prev) => prev.filter((e) => e._id !== id));
+      toast.success('Event deleted');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to delete event');
+      toast.error(err?.response?.data?.message || 'Failed to delete event');
     }
   };
 

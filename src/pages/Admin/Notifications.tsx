@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { createNotification, deleteNotification, getActiveNotification, listNotifications, updateNotification } from '../../api/notifications';
 import type { NotificationData } from '../../types';
+import { toast } from 'sonner';
+import { confirmDialog } from '../../utils/confirm';
 
 export const AdminNotifications: React.FC = () => {
   const [message, setMessage] = useState('');
@@ -39,9 +41,11 @@ export const AdminNotifications: React.FC = () => {
         setMessage('');
         setStatus('active');
         await fetchNotifications();
+        toast.success('Notification saved');
       } catch (err: any) {
         const msg = err?.response?.data?.message || 'Failed to save notification';
         setError(msg);
+        toast.error(msg);
       }
     })();
   };
@@ -100,8 +104,9 @@ export const AdminNotifications: React.FC = () => {
                       try {
                         await updateNotification(n._id, { status: n.status === 'active' ? 'inactive' : 'active' });
                         await fetchNotifications();
+                        toast.success('Notification updated');
                       } catch (err: any) {
-                        alert(err?.response?.data?.message || 'Failed to update');
+                        toast.error(err?.response?.data?.message || 'Failed to update');
                       }
                     }}
                     className="px-3 py-1 rounded-lg bg-secondary-100 text-secondary-700 hover:bg-secondary-200 transition"
@@ -110,12 +115,19 @@ export const AdminNotifications: React.FC = () => {
                   </button>
                   <button
                     onClick={async () => {
-                      if (!confirm('Delete this notification?')) return;
+                      const ok = await confirmDialog({
+                        title: 'Delete notification?',
+                        text: 'This will permanently delete the notification.',
+                        confirmButtonText: 'Delete',
+                        icon: 'warning',
+                      });
+                      if (!ok) return;
                       try {
                         await deleteNotification(n._id);
                         await fetchNotifications();
+                        toast.success('Notification deleted');
                       } catch (err: any) {
-                        alert(err?.response?.data?.message || 'Failed to delete');
+                        toast.error(err?.response?.data?.message || 'Failed to delete');
                       }
                     }}
                     className="px-3 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition"

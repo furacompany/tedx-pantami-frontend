@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { uploadImage, deleteImage } from '../../api/images';
 import { createEvent } from '../../api/events';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export const AdminCreateEvent: React.FC = () => {
   const navigate = useNavigate();
@@ -30,9 +31,11 @@ export const AdminCreateEvent: React.FC = () => {
     try {
       const res = await uploadImage(file);
       setForm((prev) => ({ ...prev, imageUrl: res.data.url }));
+      toast.success('Image uploaded');
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to upload image';
       setError(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
@@ -45,6 +48,7 @@ export const AdminCreateEvent: React.FC = () => {
       await deleteImage(form.imageUrl);
     } catch {}
     setForm((prev) => ({ ...prev, imageUrl: '' }));
+    toast.success('Image removed');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,10 +64,12 @@ export const AdminCreateEvent: React.FC = () => {
         imageUrl: form.imageUrl || undefined,
         status: form.status as 'active' | 'inactive',
       });
+      toast.success('Event created');
       navigate('/admin/events', { replace: true });
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create event';
       setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

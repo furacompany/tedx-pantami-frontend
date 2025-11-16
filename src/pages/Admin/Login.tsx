@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/Shared/Input';
 import { Button } from '../../components/Shared/Button';
 import { loginAdmin } from '../../api/admin';
+import { toast } from 'sonner';
 
 export const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -29,13 +30,16 @@ export const AdminLogin: React.FC = () => {
       const res = await loginAdmin({ email: formData.email, password: formData.password });
       if (res.success && res.data?.token) {
         localStorage.setItem('adminToken', res.data.token);
+        toast.success('Login successful');
         navigate('/admin/dashboard', { replace: true });
       } else {
         setError(res.message || 'Login failed');
+        toast.error(res.message || 'Login failed');
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Invalid credentials';
       setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

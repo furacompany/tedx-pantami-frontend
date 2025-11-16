@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { formatPrice } from '../../utils/formatPrice';
 import { listAdminTickets, deleteTicket } from '../../api/tickets';
 import type { Ticket } from '../../types';
+import { toast } from 'sonner';
+import { confirmDialog } from '../../utils/confirm';
 
 export const AdminTickets: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -27,12 +29,19 @@ export const AdminTickets: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this ticket?')) return;
+    const ok = await confirmDialog({
+      title: 'Delete ticket?',
+      text: 'This will permanently delete the ticket.',
+      confirmButtonText: 'Delete',
+      icon: 'warning',
+    });
+    if (!ok) return;
     try {
       await deleteTicket(id);
       setTickets((prev) => prev.filter((t) => t._id !== id));
+      toast.success('Ticket deleted');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to delete ticket');
+      toast.error(err?.response?.data?.message || 'Failed to delete ticket');
     }
   };
 
